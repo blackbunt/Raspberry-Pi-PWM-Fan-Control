@@ -1,0 +1,14 @@
+[Unit]
+Description=Raspberry Pi PWM Fan Speed Controller
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/scanner/Raspberry-Pi-PWM-Fan-Control/fan_control.py
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+ExecStop=/usr/bin/python3 /home/scanner/Raspberry-Pi-PWM-Fan-Control/fan_control.py --shutdown
+
+[Install]
+WantedBy=multi-user.target

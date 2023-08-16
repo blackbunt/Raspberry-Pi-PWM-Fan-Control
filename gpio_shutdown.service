@@ -1,0 +1,11 @@
+[Unit]
+Description=Set GPIO pin low on shutdown to power off fan
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+ExecStop=/usr/bin/python3 /home/scanner/Raspberry-Pi-PWM-Fan-Control/fan_control.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

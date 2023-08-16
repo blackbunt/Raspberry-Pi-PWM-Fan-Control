@@ -13,17 +13,23 @@ import sys
 # We will work on the issue and try to use hardware PWM in the future:
 PWM_FREQ = 25           # [Hz] PWM frequency
 
-FAN_PIN = 18            # BCM pin used to drive PWM fan
+# Scan-Station Options
+FAN_PIN = 18            # BCM pin used to drive PWM fan don't forget to add a PULLDOWN Resistor 10kOhm to Ground!
 WAIT_TIME = 1           # [s] Time to wait between each refresh
 
+FAN_RUN_TIME = 60       # [s] Time to drive the fan (minimal time)
 OFF_TEMP = 40           # [°C] temperature below which to stop the fan
 MIN_TEMP = 45           # [°C] temperature above which to start the fan
-MAX_TEMP = 70           # [°C] temperature at which to operate at max fan speed
+MAX_TEMP = 60           # [°C] temperature at which to operate at max fan speed
 FAN_LOW = 1
 FAN_HIGH = 100
 FAN_OFF = 0
 FAN_MAX = 100
 FAN_GAIN = float(FAN_HIGH - FAN_LOW) / float(MAX_TEMP - MIN_TEMP)
+
+# Zustandsvariable und Zeitstempel
+fan_running = False
+fan_start_time = None
 
 
 def getCpuTemperature():
@@ -32,16 +38,40 @@ def getCpuTemperature():
 
 
 def handleFanSpeed(fan, temperature):
+    global fan_running, fan_start_time
+
     if temperature > MIN_TEMP:
         delta = min(temperature, MAX_TEMP) - MIN_TEMP
         fan.start(FAN_LOW + delta * FAN_GAIN)
+        
+        if not fan_running:
+            fan_running = True
+            fan_start_time = time.time()
 
     elif temperature < OFF_TEMP:
-        fan.start(FAN_OFF)
+        # Wenn der Lüfter bereits läuft, überprüfen, ob er seit mindestens 60 Sekunden läuft
+        if fan_running and (time.time() - fan_start_time < FAN_RUN_TIME):
+            return
+        else:
+            fan.start(FAN_OFF)
+            fan_running = False
+
+
+def shutdown_handler(signal, frame):
+    GPIO.output(FAN_PIN, GPIO.LOW)
+    sys.exit(0)
+
+
+if "--shutdown" in sys.argv:
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(FAN_PIN, GPIO.OUT)
+    GPIO.output(FAN_PIN, GPIO.LOW)
+    GPIO.cleanup()
+    sys.exit()
 
 
 try:
-    signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
+    signal.signal(signal.SIGTERM, shutdown_handler)
     GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(FAN_PIN, GPIO.OUT, initial=GPIO.LOW)
