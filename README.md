@@ -1,9 +1,22 @@
-# Raspberry Pi PWM Fan Control
+Install
 
-This is a simple script to control your pwm fan on raspberry pi.
+    sudo cp pifancontrol.service /lib/systemd/system/pifancontrol.service
+    sudo cp fan_control.py /usr/local/sbin/
+    sudo chmod 644 /lib/systemd/system/pifancontrol.service
+    sudo chmod +x /usr/local/sbin/fan_control.py
+    sudo systemctl daemon-reload
+    sudo systemctl enable pifancontrol.service
+    sudo systemctl start pifancontrol.service
 
-Here's how I wiring the PWM fan on pi:
+Check status
 
-English: [Using Raspberry Pi to Control a PWM Fan and Monitor its Speed](https://blog.driftking.tw/en/2019/11/Using-Raspberry-Pi-to-Control-a-PWM-Fan-and-Monitor-its-Speed/)
+    sudo service pifancontrol status
+      
 
-中文：[利用 Raspberry Pi 控制 PWM 風扇及轉速偵測](https://blog.driftking.tw/2019/11/Using-Raspberry-Pi-to-Control-a-PWM-Fan-and-Monitor-its-Speed/)
+Remove / Uninstall
+
+    sudo systemctl stop pifancontrol.service
+    sudo systemctl disable pifancontrol.service
+    sudo systemctl daemon-reload
+    sudo rm /usr/local/sbin/fan_control.py
+    sudo rm /lib/systemd/system/pifancontrol.service
