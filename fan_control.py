@@ -28,6 +28,10 @@ fan_running = False
 fan_start_time = None
 current_speed = FAN_OFF
 
+# Zustandsvariable und Zeitstempel
+fan_running = False
+fan_start_time = None
+
 
 def getCpuTemperature():
     with open('/sys/class/thermal/thermal_zone0/temp') as f:

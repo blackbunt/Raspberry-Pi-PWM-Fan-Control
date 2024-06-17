@@ -1,0 +1,11 @@
+[Unit]
+Description=Raspberry Pi Fan Speed Reader
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/scanner/Raspberry-Pi-PWM-Fan-Control/read_fan_speed.py > /path/to/fan_speed_output.txt
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
