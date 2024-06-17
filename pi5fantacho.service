@@ -1,0 +1,11 @@
+[Unit]
+Description=Fan Tacho Service
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/sbin/read_fan_speed5.py
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

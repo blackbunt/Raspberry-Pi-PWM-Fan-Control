@@ -1,62 +1,92 @@
-#! /usr/bin/env python3
-from gpiozero import PWMOutputDevice
+#!/usr/bin/env python3
+#FOR RASPBERRY PI 4
+import RPi.GPIO as GPIO
 import time
 import signal
 import sys
-import os
 
-# Configuration
-FAN_PIN = 14		# BCM pin used to drive PWM fan
-WAIT_TIME = 2		# [s] Time to wait between each refresh
-PWM_FREQ = 25		# [kHz] 25kHz for Noctua PWM control
+# PWM frequency configuration
+PWM_FREQ = 25           # [Hz] PWM frequency
 
-# Configurable temperature and fan speed
-MIN_TEMP = 42 		# under this temp value fan is switched to the FAN_OFF speed
-MAX_TEMP = 68 		# over this temp value fan is switched to the FAN_MAX speed
-FAN_LOW = 11 		# lower side of the fan speed range during cooling
-FAN_HIGH = 99 		# higher side of the fan speed range during cooling
-FAN_OFF = 10 		# fan speed to set if the detected temp is below MIN_TEMP 
-FAN_MAX = 100 		# fan speed to set if the detected temp is above MAX_TEMP 
+# Fan control options
+FAN_PIN = 18            # BCM pin used to drive PWM fan, don't forget to add a PULLDOWN Resistor 10kOhm to Ground!
+WAIT_TIME = 1           # [s] Time to wait between each refresh
 
-# Get CPU's temperature
+FAN_RUN_TIME = 60       # [s] Minimal time to drive the fan
+OFF_TEMP = 40           # [°C] Temperature below which to stop the fan
+MIN_TEMP = 45           # [°C] Temperature above which to start the fan
+MAX_TEMP = 60           # [°C] Temperature at which to operate at max fan speed
+FAN_LOW = 1
+FAN_HIGH = 100
+FAN_OFF = 0
+FAN_MAX = 100
+FAN_GAIN = float(FAN_HIGH - FAN_LOW) / float(MAX_TEMP - MIN_TEMP)
+SMOOTHING_FACTOR = 0.1  # Smoothing factor for speed adjustments
+
+# State variable and timestamp
+fan_running = False
+fan_start_time = None
+current_speed = FAN_OFF
+
+
 def getCpuTemperature():
-        with open('/sys/class/thermal/thermal_zone0/temp') as f:
-                return float(f.read()) / 1000
+    with open('/sys/class/thermal/thermal_zone0/temp') as f:
+        return float(f.read()) / 1000
 
-def setFanSpeed(speed):
-		pwm_fan.value = speed/100  # divide by 100 to get values from 0 to 1
-		return()
 
-# Handle fan speed
-def handleFanSpeed():
-	temp = float(getCpuTemperature())
-	#print("cpu temp: {}".format(temp))
-	# Turn off the fan if temperature is below MIN_TEMP
-	if temp < MIN_TEMP:
-		setFanSpeed(FAN_OFF)
-		#print("Fan OFF") # Uncomment for testing
-	# Set fan speed to MAXIMUM if the temperature is above MAX_TEMP
-	elif temp > MAX_TEMP:
-		setFanSpeed(FAN_MAX)
-		print("Fan MAX") # Uncomment for testing
-	# Caculate dynamic fan speed
-	else:
-		step = (FAN_HIGH - FAN_LOW)/(MAX_TEMP - MIN_TEMP)
-		temp -= MIN_TEMP
-		setFanSpeed(FAN_LOW + ( round(temp) * step ))
-		#print(FAN_LOW + ( round(temp) * step )) # Uncomment for testing
-	return ()
+def setFanSpeed(fan, speed):
+    global current_speed
+    current_speed = current_speed + SMOOTHING_FACTOR * (speed - current_speed)
+    fan.ChangeDutyCycle(current_speed)
 
+
+def handleFanSpeed(fan, temperature):
+    global fan_running, fan_start_time
+
+    if temperature > MIN_TEMP:
+        delta = min(temperature, MAX_TEMP) - MIN_TEMP
+        target_speed = FAN_LOW + delta * FAN_GAIN
+        
+        if not fan_running:
+            fan_running = True
+            fan_start_time = time.time()
+        
+        setFanSpeed(fan, target_speed)
+
+    elif temperature < OFF_TEMP:
+        # Wenn der Lüfter bereits läuft, überprüfen, ob er seit mindestens 60 Sekunden läuft
+        if fan_running and (time.time() - fan_start_time < FAN_RUN_TIME):
+            return
+        else:
+            setFanSpeed(fan, FAN_OFF)
+            fan_running = False
+
+
+def shutdown_handler(signal, frame):
+    GPIO.output(FAN_PIN, GPIO.LOW)
+    sys.exit(0)
+
+
+if "--shutdown" in sys.argv:
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(FAN_PIN, GPIO.OUT)
+    GPIO.output(FAN_PIN, GPIO.LOW)
+    GPIO.cleanup()
+    sys.exit()
 
 try:
-		pwm_fan = PWMOutputDevice(FAN_PIN, initial_value=0,frequency=PWM_FREQ) # initialize FAN_PIN as a pwm output
-		setFanSpeed(FAN_OFF) # initially set fan speed to the FAN_OFF value
-		while True:
-				handleFanSpeed() # call the function that calculates the target fan speed
-				time.sleep(WAIT_TIME) # wait for WAIT_TIME seconds before recalculate
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(FAN_PIN, GPIO.OUT, initial=GPIO.LOW)
+    fan = GPIO.PWM(FAN_PIN, PWM_FREQ)
+    fan.start(FAN_OFF)
+    while True:
+        handleFanSpeed(fan, getCpuTemperature())
+        time.sleep(WAIT_TIME)
 
-except KeyboardInterrupt: # trap a CTRL+C keyboard interrupt
-		setFanSpeed(FAN_HIGH)
-		
+except KeyboardInterrupt:
+    pass
+
 finally:
-    pwm_fan.close() # in case of unexpected exit, resets pin status (fan will go full speed after exiting)
+    GPIO.cleanup()

@@ -1,0 +1,11 @@
+[Unit]
+Description=Dynamic FAN control
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/fan_control5.py
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
