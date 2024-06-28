@@ -34,7 +34,8 @@ def fell():
 
     # Write the RPM value to a file
     with open(RPM_FILE, 'w') as f:
-        f.write(str(rpm))
+        f.write(f"{rpm:.0f}\n")  # Schreibt den RPM-Wert ohne Nachkommastellen
+
 
 # Add event to detect
 tach.when_activated = fell
