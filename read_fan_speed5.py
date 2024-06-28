@@ -10,6 +10,7 @@ TACH_PIN = 17   # Fan's tachometer output pin
 PULSE = 2       # Noctua fans puts out two pulses per revolution
 WAIT_TIME = 1   # [s] Time to wait between each refresh
 RPM_FILE = '/var/run/fan_rpm.txt'  # File to store the current RPM value
+# var/run is symlinked to /run, which is mounted in ram :)
 
 # Setup variables
 t = time.time()
